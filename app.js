@@ -287,8 +287,10 @@
     const box = $("#vols-dates");
     box.hidden = scen.length < 2;
     if (scen.length > 1) {
-      const totOf = s => (ALL.find(r => norm(r.dep) === "total" && r.dates === s) || {}).tot;
-      chips("#vols-dates", scen.map(s => [s, totOf(s) ? `${s} · ${totOf(s)}` : s]), "dates", () => drawVols(rows));
+      if (!scen.includes(filters.dates)) filters.dates = scen[0];
+      const totOf = s => (ALL.find(r => norm(r.dep) === "total" && r.dates === s) || {}).tot || "";
+      box.innerHTML = `<button type="button" class="dswitch" aria-label="Changer de dates">${scen.map(s => `<span class="${s === filters.dates ? "on" : ""}"><b>${esc(s)}</b><small>${esc(totOf(s))}</small></span>`).join("")}</button><span class="dswitch-hint">Un clic pour changer de dates</span>`;
+      box.querySelector(".dswitch").onclick = () => { filters.dates = scen[(scen.indexOf(filters.dates) + 1) % scen.length]; drawVols(rows); };
     }
     const cur = scen.length > 1 ? filters.dates : (scen[0] || "");
     const V = ALL.filter(r => !r.dates || !cur || r.dates === cur);
