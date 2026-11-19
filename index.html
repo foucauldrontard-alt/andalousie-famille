@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#B5532E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Andalousie">
+<title>Andalousie en famille</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="gate" class="gate" hidden>
+  <h1>Andalousie en famille</h1>
+  <p class="muted">Ouvrez l'appli avec le lien partagé dans le groupe WhatsApp de la famille.</p>
+</div>
+
+<div id="app" hidden>
+<header class="hero">
+  <svg class="deco" viewBox="0 0 400 260" fill="none" stroke="#FFF8EE" stroke-width="3" aria-hidden="true">
+    <path d="M10 250 L10 150 Q60 70 110 150 L110 250"/><path d="M130 250 L130 150 Q180 70 230 150 L230 250"/><path d="M250 250 L250 150 Q300 70 350 150 L350 250"/>
+    <path d="M0 140 H400"/><circle cx="320" cy="50" r="28"/><path d="M40 120 q10 -14 20 0 q10 -14 20 0"/>
+  </svg>
+  <div class="wrap">
+    <div class="top-row"><div class="eyebrow" id="h-eyebrow">Projet famille</div><button class="refresh" id="refresh" type="button">Actualiser</button></div>
+    <h1 id="h-title">Andalousie en famille</h1>
+    <div class="dates" id="h-dates"></div>
+    <div class="hero-grid">
+      <div class="countdown"><b id="h-days">–</b><span>jours avant le départ</span></div>
+      <div>
+        <div class="pills" id="h-pills"></div>
+        <div class="progress">
+          <div class="bar" id="h-bar"></div>
+          <div class="legend" id="h-legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Sections">
+  <div class="wrap" id="tabs">
+    <a href="#accueil" data-v="accueil">L'essentiel</a>
+    <a href="#nouvelles" data-v="nouvelles">Nouvelles</a>
+    <a href="#logement" data-v="logement">Logement</a>
+    <a href="#prestataires" data-v="prestataires">Repas, garde &amp; sorties</a>
+    <a href="#famille" data-v="famille">Qui vient</a>
+    <a href="#plan" data-v="plan">Plan d'action</a>
+    <a href="#liens" data-v="liens">Documents</a>
+  </div>
+</nav>
+
+<main class="wrap">
+  <div id="loading">Chargement…</div>
+  <div id="error"></div>
+
+  <section class="view" id="v-accueil">
+    <div class="sec-h"><h2>À décider ensemble</h2><span class="aside" id="dec-count"></span></div>
+    <div class="grid g2" id="decisions"></div>
+    <div class="grid g2" style="margin-top:14px">
+      <div>
+        <div class="sec-h"><h2>À faire</h2></div>
+        <div class="card"><ul class="todo" id="todo"></ul></div>
+      </div>
+      <div>
+        <div class="sec-h"><h2>Dernières nouvelles</h2><a class="aside" href="#nouvelles">Tout voir →</a></div>
+        <div class="card"><ul class="tl" id="news-short"></ul></div>
+      </div>
+    </div>
+    <div class="sec-h"><h2>Où en est le logement</h2><a class="aside" href="#logement">Détails →</a></div>
+    <div class="summary-row" id="lodge-stats"></div>
+  </section>
+
+  <section class="view" id="v-nouvelles">
+    <div class="sec-h"><h2>Le fil du projet</h2><span class="aside">Mails, Drive et WhatsApp</span></div>
+    <div class="filters" id="news-filters"></div>
+    <ul class="tl" id="news"></ul>
+  </section>
+
+  <section class="view" id="v-logement">
+    <div class="sec-h"><h2>Hébergements</h2><span class="aside">Le choix du lieu débloque tout le reste</span></div>
+    <div class="summary-row" id="lodge-stats2"></div>
+    <div class="filters" id="lodge-filters" style="margin-top:12px"></div>
+    <div class="grid g2" id="lodges"></div>
+  </section>
+
+  <section class="view" id="v-prestataires"><div id="presta"></div></section>
+
+  <section class="view" id="v-famille">
+    <div class="sec-h"><h2>Qui vient</h2><span class="aside" id="fam-aside"></span></div>
+    <div class="notice">Une erreur ? Corrigez-la dans l'onglet « Participants » du fichier de suivi de Noé : l'appli suivra.</div>
+    <div class="summary-row" id="fam-stats"></div>
+    <div class="grid g3" id="foyers" style="margin-top:12px"></div>
+  </section>
+
+  <section class="view" id="v-plan">
+    <div class="sec-h"><h2>Plan d'action</h2><span class="aside" id="plan-aside"></span></div>
+    <div class="filters" id="plan-filters"></div>
+    <div class="board" id="board"></div>
+  </section>
+
+  <section class="view" id="v-liens">
+    <div class="sec-h"><h2>Documents</h2></div>
+    <div class="links" id="links"></div>
+    <div class="sec-h"><h2>Partager le point</h2></div>
+    <div class="card">
+      <p class="small muted" style="margin-top:0">Un résumé prêt à coller dans le groupe WhatsApp.</p>
+      <button class="btn" id="copy-btn" type="button">Copier le point du jour</button>
+      <textarea class="copy" id="copy-area" readonly></textarea>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap" id="foot"></div></footer>
+</div>
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
