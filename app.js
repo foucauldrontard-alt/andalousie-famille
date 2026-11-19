@@ -59,7 +59,7 @@
     const j = JOURS[d.getDay()]; return `${j[0].toUpperCase() + j.slice(1)} ${fDay(d)}`;
   }
   const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  const badge = (code, txt) => `<span class="badge b-${esc(code)}">${esc(txt)}</span>`;
+  const badge = (code, txt) => `<span class="badge b-${esc(code)}" title="${esc(txt)}">${esc(String(txt || "").replace(/\s*\(.*\)\s*$/, ""))}</span>`;
   const isUrl = u => /^https:\/\//.test(String(u || ""));
   function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 2200); }
 
@@ -68,7 +68,9 @@
     "a contacter": "a_contacter", "decline": "refus", "ecarte": "refus", "contacte": "contacte", "repere": "identifie",
     "recommande": "recommande", "a reserver": "a_lancer", "a planifier": "a_lancer", "apres le logement": "bloque", "si maroc": "reserve"
   };
-  const code = t => STATUS[norm(t)] || "attente";
+  const isPast = t => /^(annule|decline|ecarte|abandonne)/.test(norm(t));
+  const code = t => isPast(t) ? "refus" : (STATUS[norm(t)] || "attente");
+  const isActivite = c => /^(sorties?|activites?)$/.test(norm(c));
   const SRC = { whatsapp: ["W", "WhatsApp"], mail: ["@", "Mail"], drive: ["D", "Drive"], autre: ["•", ""] };
   const PLAN_COLS = [{ k: "À lancer", c: "#B9AC9E" }, { k: "En attente logement", c: "#D98A6A" }, { k: "En cours", c: "#D9A440" }, { k: "Validé", c: "#5E7A3A" }];
 
@@ -125,6 +127,8 @@
 
     /* progression */
     const acts = plan.map(a => ({ ref: a["Réf"], cat: a["Catégorie"], action: a["Action / Tâche"], resp: a["Responsable"], prio: a["Priorité"], due: a["Échéance"], statut: (a["Statut"] || "").trim(), notes: a["Notes & Prochaines étapes"] })).filter(a => a.ref || a.action);
+    const actsPast = acts.filter(a => isPast(a.statut));
+    acts.splice(0, acts.length, ...acts.filter(a => !isPast(a.statut)));
     const nAct = acts.length || 1;
     $("#h-bar").innerHTML = PLAN_COLS.slice().reverse().map(c => { const k = acts.filter(a => a.statut === c.k).length; return k ? `<i style="width:${k / nAct * 100}%;background:${c.c}" title="${esc(c.k)} : ${k}"></i>` : ""; }).join("");
     $("#h-legend").innerHTML = PLAN_COLS.slice().reverse().map(c => `<span style="--c:${c.c}">${esc(c.k)} · ${acts.filter(a => a.statut === c.k).length}</span>`).join("");
@@ -134,14 +138,13 @@
     const open = decs.filter(x => !x.ok), closed = decs.filter(x => x.ok);
     $("#dec-count").textContent = open.length ? `${open.length} question${open.length > 1 ? "s" : ""} ouverte${open.length > 1 ? "s" : ""}` : "";
     $("#decisions").innerHTML = open.map(x => `<div class="card decision"><div class="q">${esc(x.q)}</div><div class="small">${esc(x.ctx)}</div><div class="meta">${x.par ? "Posée par " + esc(x.par) : ""}${x.le ? " · " + fDay(parseD(x.le)) : ""}</div></div>`).join("")
-      + closed.map(x => `<div class="card decision" style="border-left-color:var(--olive)"><div class="q">${esc(x.q)}</div><div class="small"><b>Décidé :</b> ${esc(x.rep)}</div></div>`).join("")
       || `<p class="empty">Rien à trancher pour le moment.</p>`;
     const tab = document.querySelector('[data-v="accueil"]'); tab.querySelector(".n")?.remove();
     if (open.length) tab.insertAdjacentHTML("beforeend", `<span class="n">${open.length}</span>`);
 
     /* à faire */
     const todos = todo.map(t => ({ q: t["Tâche"], qui: t["Qui"], av: t["Avant le"], fait: norm(t["Fait"]) === "oui" })).filter(t => t.q);
-    $("#todo").innerHTML = todos.map(t => `<li class="${t.fait ? "done" : ""}"><span class="box"></span><div><div class="t">${esc(t.q)}</div><div class="who">${esc(t.qui)}${t.av ? ` · avant le ${fDay(parseD(t.av))}` : ""}</div></div></li>`).join("") || `<li class="empty">Rien en attente.</li>`;
+    $("#todo").innerHTML = todos.filter(t => !t.fait).map(t => `<li class="${t.fait ? "done" : ""}"><span class="box"></span><div><div class="t">${esc(t.q)}</div><div class="who">${esc(t.qui)}${t.av ? ` · avant le ${fDay(parseD(t.av))}` : ""}</div></div></li>`).join("") || `<li class="empty">Rien en attente.</li>`;
 
     /* fil */
     const news = fil.map(r => ({ le: r["Date"], src: norm(r["Source"]) || "autre", qui: r["Qui"], titre: r["Quoi"], lien: r["Lien"] })).filter(r => r.titre)
@@ -158,8 +161,10 @@
 
     /* logement */
     const L = heb.map(h => ({ nom: h["Nom"], lieu: h["Lieu"], pays: h["Pays"] || "", st: h["Statut"], c: code(h["Statut"]), cap: h["Le lieu"], prix: h["Prix"], repas: h["Repas"], notes: h["À savoir"], contact: h["Contact"], lien: h["Lien du devis"] })).filter(h => h.nom);
+    const Lpast = L.filter(h => isPast(h.st));
+    L.splice(0, L.length, ...L.filter(h => !isPast(h.st)));
     const cnt = k => L.filter(x => x.c === k).length;
-    const stats = [[cnt("valide") ? cnt("valide") : cnt("devis"), cnt("valide") ? "lieu choisi" : "devis reçu" + (cnt("devis") > 1 ? "s" : "")], [cnt("attente") + cnt("relance"), "en attente de réponse"], [cnt("refus"), "refusés ou écartés"], [L.length, "lieux suivis"]];
+    const stats = [[cnt("valide") ? cnt("valide") : cnt("devis"), cnt("valide") ? "lieu choisi" : "devis reçu" + (cnt("devis") > 1 ? "s" : "")], [cnt("attente") + cnt("relance"), "en attente de réponse"], [L.length, "lieux encore en lice"], [Lpast.length, "annulés ou déclinés"]];
     $("#lodge-stats").innerHTML = $("#lodge-stats2").innerHTML = stats.map(([k, l]) => `<div class="stat"><b>${k}</b><span>${l}</span></div>`).join("");
     const order = { valide: 0, devis: 1, relance: 2, attente: 3, a_contacter: 4, refus: 9 };
     function drawLodges() {
@@ -168,15 +173,36 @@
         <dl class="kv">${kv("Prix", h.prix, true, false, true)}${kv("Le lieu", h.cap)}${kv("Repas", h.repas)}${kv("À savoir", h.notes)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span>
         ${isUrl(h.lien) ? `<a class="small" href="${esc(h.lien)}" target="_blank" rel="noopener">Voir le devis ↗</a>` : ""}</div>`).join("") || `<p class="empty">Aucun lieu.</p>`;
     }
-    chips("#lodge-filters", [["tous", "Tous"], ...[...new Set(L.map(x => x.pays).filter(Boolean))].map(p => [p, p])], "pays", drawLodges);
+    const paysL = [...new Set(L.map(x => x.pays).filter(Boolean))];
+    $("#lodge-filters").style.display = paysL.length > 1 ? "" : "none";
+    if (paysL.length < 2) filters.pays = "tous";
+    chips("#lodge-filters", [["tous", "Tous"], ...paysL.map(p => [p, p])], "pays", drawLodges);
     drawLodges();
 
     /* prestataires */
     const P = pre.map(p => ({ cat: p["Catégorie"] || "Autres", nom: p["Nom"], zone: p["Zone"], st: p["Statut"], c: code(p["Statut"]), offre: p["Offre"], prix: p["Prix"], notes: p["À savoir"], contact: p["Contact"] })).filter(p => p.nom);
-    const intro = { "Repas": "Demi-pension de l'hôtel ou chef à domicile", "Garde d'enfants": "Pour quelques demi-journées entre adultes", "Transport": "Se réserve une fois le lieu choisi", "Sorties": "Autour de Ronda" };
-    $("#presta").innerHTML = [...new Set(P.map(p => p.cat))].map(cat => `<div class="sec-h"><h2>${esc(cat)}</h2><span class="aside">${esc(intro[cat] || "")}</span></div><div class="grid g2">${P.filter(p => p.cat === cat).map(p => `<div class="card lodge fold ${p.c === "refus" ? "refus" : ""}">
+    const Ppast = P.filter(p => isPast(p.st)), Pact = P.filter(p => !isPast(p.st) && isActivite(p.cat));
+    P.splice(0, P.length, ...P.filter(p => !isPast(p.st) && !isActivite(p.cat)));
+    const presCard = p => `<div class="card lodge fold ${p.c === "refus" ? "refus" : ""}">
       <div class="top"><div><h3>${esc(p.nom)}</h3><div class="where">${esc(p.zone)}</div></div>${p.st ? badge(p.c, p.st) : ""}</div>
-      <dl class="kv">${kv("Offre", p.offre, false, false, true)}${kv("Prix", p.prix, true, false, true)}${kv("À savoir", p.notes)}${kv("Contact", p.contact, false, true)}</dl><span class="more">Voir le détail ▾</span></div>`).join("")}</div>`).join("") || `<p class="empty">Aucun prestataire.</p>`;
+      <dl class="kv">${kv("Offre", p.offre, false, false, true)}${kv("Prix", p.prix, true, false, true)}${kv("À savoir", p.notes)}${kv("Contact", p.contact, false, true)}</dl><span class="more">Voir le détail ▾</span></div>`;
+    const intro = { "Repas": "Demi-pension de l'hôtel ou chef à domicile", "Garde d'enfants": "Pour quelques demi-journées entre adultes", "Transport": "Se réserve une fois le lieu choisi", "Sorties": "Autour de Ronda" };
+    $("#presta").innerHTML = [...new Set(P.map(p => p.cat))].map(cat => `<div class="sec-h"><h2>${esc(cat)}</h2><span class="aside">${esc(intro[cat] || "")}</span></div><div class="grid g2">${P.filter(p => p.cat === cat).map(presCard).join("")}</div>`).join("") || `<p class="empty">Aucun prestataire.</p>`;
+
+    /* activités */
+    $("#activites").innerHTML = Pact.map(presCard).join("") || `<p class="empty">Aucune activité pour le moment.</p>`;
+    const actPlan = acts.filter(a => isActivite(a.cat));
+    $("#act-plan").innerHTML = actPlan.length ? `<div class="sec-h"><h2>À organiser</h2><span class="aside">Actions du plan</span></div><div class="grid g2">${actPlan.map(a => `<div class="act"><div class="ref">${esc(a.ref)} · ${esc(a.statut)}${a.prio ? ` · <span class="prio ${esc(a.prio)}">${esc(a.prio)}</span>` : ""}</div><div class="a">${esc(a.action)}</div>${a.notes ? `<div class="n">${esc(a.notes)}</div>` : ""}</div>`).join("")}</div>` : "";
+
+    /* passé / annulé */
+    const pastBlock = (titre, html) => html ? `<div class="past-sec"><div class="sec-h"><h2>${titre}</h2></div>${html}</div>` : "";
+    $("#passe").innerHTML = [
+      pastBlock("Décisions prises", closed.length ? `<div class="grid g2">${closed.map(x => `<div class="card decision" style="border-left-color:var(--olive)"><div class="q">${esc(x.q)}</div><div class="small"><b>Décidé :</b> ${esc(x.rep)}</div>${x.le ? `<div class="meta">${fDay(parseD(x.le))}</div>` : ""}</div>`).join("")}</div>` : ""),
+      pastBlock("Tâches faites", todos.some(t => t.fait) ? `<div class="card"><ul class="todo">${todos.filter(t => t.fait).map(t => `<li class="done"><span class="box"></span><div><div class="t">${esc(t.q)}</div><div class="who">${esc(t.qui)}</div></div></li>`).join("")}</ul></div>` : ""),
+      pastBlock("Hébergements annulés ou déclinés", Lpast.length ? `<div class="grid g2 past">${Lpast.map(h => `<div class="card lodge fold refus"><div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${badge("refus", h.st)}</div><dl class="kv">${kv("À savoir", h.notes, false, false, true)}${kv("Prix", h.prix)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span></div>`).join("")}</div>` : ""),
+      pastBlock("Prestataires et activités annulés", Ppast.length ? `<div class="grid g2 past">${Ppast.map(presCard).join("")}</div>` : ""),
+      pastBlock("Actions annulées", actsPast.length ? `<div class="grid g2 past">${actsPast.map(a => `<div class="act"><div class="ref">${esc(a.ref)} · ${esc(a.cat)} · ${esc(a.statut)}</div><div class="a">${esc(a.action)}</div>${a.notes ? `<div class="n">${esc(a.notes)}</div>` : ""}</div>`).join("")}</div>` : "")
+    ].join("") || `<p class="empty">Rien d'annulé ni de terminé pour le moment.</p>`;
 
     /* famille */
     $("#fam-aside").textContent = `${foyers.length} foyers`;
@@ -208,7 +234,7 @@
       const lines = [`🌞 ${I.titre || "Andalousie"} · point du ${fDay(new Date())} (J-${$("#h-days").textContent})`, ""];
       if (open.length) { lines.push("❓ À décider :"); open.forEach(x => lines.push(`• ${x.q}`)); lines.push(""); }
       const td = todos.filter(t => !t.fait); if (td.length) { lines.push("✅ À faire :"); td.forEach(t => lines.push(`• ${t.q}${t.qui ? ` (${t.qui})` : ""}`)); lines.push(""); }
-      lines.push(`🏡 Logement : ${cnt("devis")} devis reçu(s), ${cnt("attente") + cnt("relance")} en attente, ${cnt("refus")} refus.`);
+      lines.push(`🏡 Logement : ${cnt("devis")} devis reçu(s), ${cnt("attente") + cnt("relance")} en attente, ${Lpast.length} annulé(s) ou décliné(s).`);
       if (news.length) { lines.push("", "📰 Dernières nouvelles :"); news.slice(0, 4).forEach(x => lines.push(`• ${x.qui ? x.qui + " : " : ""}${x.titre}`)); }
       lines.push("", location.origin + location.pathname);
       const txt = lines.join("\n"); const ta = $("#copy-area"); ta.value = txt; ta.style.display = "block";
@@ -345,11 +371,19 @@
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#chat").hidden) closeChat(); });
 
   /* ---------- navigation ---------- */
+  const morePop = $("#more-pop"), moreBtn = $("#more-btn");
+  morePop.innerHTML = [...document.querySelectorAll("#tabs a.more-item")].map(a => `<a href="#${a.dataset.v}" data-v="${a.dataset.v}">${a.querySelector("svg").outerHTML}<span>${a.querySelector(".l-long").innerHTML}</span></a>`).join("");
+  const closeMore = () => { morePop.hidden = true; moreBtn.setAttribute("aria-expanded", "false"); };
+  moreBtn.onclick = e => { e.stopPropagation(); const open = morePop.hidden; morePop.hidden = !open; moreBtn.setAttribute("aria-expanded", String(open)); };
+  morePop.onclick = () => closeMore();
+  document.addEventListener("click", e => { if (!morePop.hidden && !e.target.closest("#more-pop, #more-btn")) closeMore(); });
+
   function route() {
     const v = (location.hash || "#accueil").slice(1);
     const ok = document.getElementById("v-" + v) ? v : "accueil";
     document.querySelectorAll("section.view").forEach(s => s.classList.toggle("on", s.id === "v-" + ok));
-    document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.v === ok));
+    document.querySelectorAll("#tabs a, #more-pop a").forEach(a => a.classList.toggle("on", a.dataset.v === ok));
+    moreBtn.classList.toggle("on", !!document.querySelector(`#tabs a.more-item[data-v="${ok}"]`));
   }
   window.addEventListener("hashchange", () => {
     route();
