@@ -79,14 +79,14 @@
   async function load(quiet) {
     if (!quiet) $("#loading").style.display = "";
     try {
-      const [infos, fil, dec, todo, heb, pre, plan, part, pts] = await Promise.all([
+      const [infos, fil, dec, todo, heb, pre, plan, part, pts, vols] = await Promise.all([
         opt("Infos"), opt("Fil"), opt("Décisions"), opt("À faire"), opt("Hébergements"), opt("Prestataires"),
-        opt("Plan (fichier de Noé)"), opt("Participants (fichier de Noé)"), opt("Point du jour")
+        opt("Plan (fichier de Noé)"), opt("Participants (fichier de Noé)"), opt("Point du jour"), opt("Vols")
       ]);
       if (!infos.length && !fil.length && !heb.length) throw new Error("vide");
       const I = {}; const liens = [];
       infos.forEach(r => { const k = (r["Clé"] || "").trim(), v = (r["Valeur"] || "").trim(); if (!k) return; if (/^lien/i.test(k)) { if (isUrl(v)) liens.push({ nom: r["Explication"] || k.replace(/^lien\s*:?\s*/i, ""), url: v }); } else I[k] = v; });
-      D = { I, liens, fil, dec, todo, heb, pre, plan, part, pts };
+      D = { I, liens, fil, dec, todo, heb, pre, plan, part, pts, vols };
       $("#error").innerHTML = "";
       render();
     } catch (e) {
@@ -200,6 +200,9 @@
     const intro = { "Repas": "Demi-pension de l'hôtel ou chef à domicile", "Garde d'enfants": "Pour quelques demi-journées entre adultes", "Transport": "Se réserve une fois le lieu choisi", "Sorties": "Autour de Ronda" };
     $("#presta").innerHTML = [...new Set(P.map(p => p.cat))].map(cat => `<div class="sec-h"><h2>${esc(cat)}</h2><span class="aside">${esc(intro[cat] || "")}</span></div><div class="grid g2">${P.filter(p => p.cat === cat).map(presCard).join("")}</div>`).join("") || `<p class="empty">Aucun prestataire.</p>`;
 
+    /* vols */
+    drawVols(D.vols || []);
+
     /* activités */
     $("#activites").innerHTML = Pact.map(presCard).join("") || `<p class="empty">Aucune activité pour le moment.</p>`;
     const actPlan = acts.filter(a => isActivite(a.cat));
@@ -256,6 +259,56 @@
 
     const m = parseD(I.maj);
     $("#foot").innerHTML = `Données lues en direct dans le Drive du projet${m ? ` · fil mis à jour le ${fDay(m)}${hasTime(I.maj) ? " à " + fTime(m) : ""}` : ""}. Pour corriger une info, modifiez le fichier dans le Drive : l'appli suivra.`;
+  }
+
+  /* ---------- vols ---------- */
+  const euros = s => { const m = String(s || "").replace(/\s/g, "").match(/\d+/); return m ? +m[0] : 0; };
+  function leg(label, txt) {
+    const t = String(txt || "").trim(); if (!t) return "";
+    const [day, rest] = t.includes("·") ? t.split("·").map(x => x.trim()) : ["", t];
+    const ar = (rest || "").split("→").map(x => x.trim());
+    const body = ar.length === 2
+      ? `<span class="f-t">${esc(ar[0])}</span><span class="f-line"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg></span><span class="f-t">${esc(ar[1])}</span>`
+      : `<span class="f-txt">${esc(rest)}</span>`;
+    return `<div class="f-leg"><span class="f-lbl">${label}</span><span class="f-day">${esc(day)}</span>${body}</div>`;
+  }
+  function tagFor(r) {
+    const t = String(r || "").trim(); if (!t) return "";
+    const n = norm(t); const c = /moins cher/.test(n) ? "cheap" : /plus cher/.test(n) ? "dear" : "info";
+    return `<span class="f-tag ${c}">${esc(t)}</span>`;
+  }
+  function drawVols(rows) {
+    const V = rows.map(r => ({ dep: (r["Départ"] || "").trim(), qui: r["Voyageurs"], opt: r["Option"], co: r["Compagnie"], aller: r["Aller"], retour: r["Retour"], pp: r["Prix / pers. A/R"], tot: r["Total groupe"], rep: r["Repère"], note: r["À savoir"], le: r["Relevé le"] })).filter(r => r.dep && r.opt);
+    if (!V.length) { $("#vols").innerHTML = `<p class="empty">Les options de vol arrivent bientôt.</p>`; $("#vols-aside").textContent = ""; return; }
+    const special = ["total", "trajet", "a savoir"];
+    const flights = V.filter(r => !special.includes(norm(r.dep)));
+    const total = V.find(r => norm(r.dep) === "total");
+    const trajets = V.filter(r => norm(r.dep) === "trajet");
+    const tips = V.filter(r => norm(r.dep) === "a savoir");
+    const le = (V.find(r => r.le) || {}).le;
+    $("#vols-aside").textContent = le ? `Prix relevés le ${le}` : "";
+    const max = Math.max(1, ...flights.map(r => euros(r.tot)));
+    const groups = [...new Set(flights.map(r => r.dep))];
+    let html = "";
+    if (total) html += `<div class="card vols-total"><div><div class="vt-lbl">${esc(total.opt)}</div><div class="vt-num">${esc(total.tot)}</div>${total.note ? `<div class="vt-note">${esc(total.note)}</div>` : ""}</div>
+      <div class="vt-dest"><span>Arrivée</span><b>Málaga</b><small>mer. 24 → dim. 28 févr.</small></div></div>`;
+    groups.forEach(g => {
+      const list = flights.filter(r => r.dep === g);
+      const qui = (list.find(r => r.qui) || {}).qui || "";
+      html += `<div class="sec-h vols-h"><h2>Depuis ${esc(g)}</h2><span class="aside">${esc(qui)}</span></div><div class="grid g2">`;
+      html += list.map(r => {
+        const t = euros(r.tot), cheap = /moins cher/.test(norm(r.rep));
+        return `<div class="card flight${cheap ? " cheap" : ""}">
+          <div class="f-top"><div><div class="f-co">${esc(r.co)}</div><h3>${esc(r.opt)}</h3></div>${tagFor(r.rep)}</div>
+          <div class="f-legs">${leg("Aller", r.aller)}${leg("Retour", r.retour)}</div>
+          ${r.pp || r.tot ? `<div class="f-price"><div><b>${esc(r.pp)}</b><span>par personne, aller-retour</span></div>${r.tot ? `<div class="r"><b>${esc(r.tot)}</b><span>pour ce groupe</span></div>` : ""}</div>
+          ${t ? `<div class="f-bar" title="Total pour le groupe"><i style="width:${Math.max(4, t / max * 100)}%"></i></div>` : ""}` : ""}
+          ${r.note ? `<div class="f-note">${esc(r.note)}</div>` : ""}</div>`;
+      }).join("") + `</div>`;
+    });
+    if (trajets.length) html += `<div class="sec-h vols-h"><h2>De l'aéroport à l'hôtel</h2><span class="aside">Selon l'hôtel choisi</span></div><div class="grid g2">${trajets.map(r => `<div class="card trajet"><div class="tr-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14M6 17V9.5L8 6h8l2 3.5V17M6 12h12"/><circle cx="8" cy="17.5" r="1.5"/><circle cx="16" cy="17.5" r="1.5"/></svg></div><div><h3>${esc(r.opt)}</h3><div class="tr-dur">${esc(r.aller)}</div>${r.note ? `<div class="small muted">${esc(r.note)}</div>` : ""}</div></div>`).join("")}</div>`;
+    if (tips.length) html += `<div class="sec-h vols-h"><h2>Bon à savoir</h2></div><div class="card"><ul class="tips">${tips.map(r => `<li>${esc(r.opt)}</li>`).join("")}</ul></div>`;
+    $("#vols").innerHTML = html;
   }
 
   function kv(label, val, bold, muted, keep) {
@@ -318,6 +371,7 @@
     out.push("\n## À faire\n" + todo.map(x => "- " + row(x, ["Tâche", "Qui", "Avant le", "Fait"])).join("\n"));
     out.push("\n## Hébergements\n" + heb.map(x => "- " + row(x, ["Nom", "Lieu", "Pays", "Statut", "Le lieu", "Prix", "Repas", "À savoir"])).join("\n"));
     out.push("\n## Prestataires\n" + pre.map(x => "- " + row(x, ["Catégorie", "Nom", "Zone", "Statut", "Offre", "Prix", "À savoir"])).join("\n"));
+    out.push("\n## Vols\n" + (D.vols || []).map(x => "- " + row(x, ["Départ", "Option", "Compagnie", "Aller", "Retour", "Prix / pers. A/R", "Total groupe", "Repère", "À savoir", "Relevé le"])).join("\n"));
     out.push("\n## Plan d'action\n" + plan.map(x => "- " + row(x, ["Réf", "Catégorie", "Action / Tâche", "Responsable", "Priorité", "Statut", "Notes & Prochaines étapes"])).join("\n"));
     const foy = {}; part.forEach(p => { const f = p["Foyer"] || "?"; (foy[f] = foy[f] || []).push(`${p["Prénom"] || "?"} (${(p["Catégorie"] || "").toLowerCase()}, ${p["Âge (fév. 2027)"] || p["Âge"] || "?"})${p["Ville de départ"] ? ", départ " + p["Ville de départ"] : ""}${p["Chambre assignée"] ? ", " + p["Chambre assignée"] : ""}`); });
     out.push(`\n## Participants (${part.length})\n` + Object.entries(foy).map(([f, l]) => `- ${f} : ${l.join(" ; ")}`).join("\n"));
