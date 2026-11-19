@@ -8,6 +8,10 @@ Site statique (HTML, CSS, JavaScript, sans build) hébergé sur GitHub Pages. Le
 
 Onglets lus dans la feuille : `Infos`, `Fil`, `Décisions`, `À faire`, `Hébergements`, `Prestataires`, `Plan (fichier de Noé)`, `Participants (fichier de Noé)`. Les deux derniers recopient le fichier de suivi de Noé par `IMPORTRANGE`, sans les colonnes santé et régimes.
 
+## Chat avec Claude
+
+Le bouton « Demander à Claude » envoie la question et les données du séjour à un relais Cloudflare Worker (`relais-cloudflare.js`), qui appelle l'API Claude avec la clé Anthropic gardée en secret (`ANTHROPIC_API_KEY`). Le relais n'accepte que les appels venant de ce site avec la clé d'accès du lien partagé. Le bouton n'apparaît que si la ligne `chat` de l'onglet `Infos` contient l'adresse du relais.
+
 ## Lancer en local
 
 ```

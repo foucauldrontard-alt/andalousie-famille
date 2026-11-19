@@ -215,6 +215,8 @@
       (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast("Copié : à coller dans WhatsApp"), () => { ta.select(); toast("Sélectionnez le texte puis copiez-le"); });
     };
 
+    if (isUrl(I.chat) && $("#chat").hidden) $("#chat-fab").hidden = false;
+
     const m = parseD(I.maj);
     $("#foot").innerHTML = `Données lues en direct dans le Drive du projet${m ? ` · fil mis à jour le ${fDay(m)}${hasTime(I.maj) ? " à " + fTime(m) : ""}` : ""}. Pour corriger une info, modifiez le fichier dans le Drive : l'appli suivra.`;
   }
@@ -235,6 +237,112 @@
     el.innerHTML = items.map(([k, l]) => `<button type="button" class="chip ${k === filters[key] ? "on" : ""}" data-k="${esc(k)}">${esc(l)}</button>`).join("");
     el.onclick = e => { const b = e.target.closest(".chip"); if (!b) return; filters[key] = b.dataset.k; [...el.children].forEach(c => c.classList.toggle("on", c === b)); redraw(); };
   }
+
+
+  /* ---------- chat avec Claude ---------- */
+  const CHAT_STORE = "andalousie_chat";
+  let chatLog = [];
+  try { chatLog = JSON.parse(sessionStorage.getItem(CHAT_STORE) || "[]"); } catch (e) { chatLog = []; }
+  let chatBusy = false;
+  const SUGG = ["Compare les hébergements reçus", "Qu'est-ce qui reste à décider en priorité ?", "Propose un programme jour par jour", "Combien ça coûte par famille ?", "Rédige un message de relance pour un hôtel"];
+
+  function md(src) {
+    const lines = esc(src).split("\n"); let html = "", list = null, para = [];
+    const inline = t => t.replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>").replace(/`([^`]+)`/g, "<code>$1</code>");
+    const flushP = () => { if (para.length) { html += `<p>${inline(para.join("<br>"))}</p>`; para = []; } };
+    const flushL = () => { if (list) { html += `</${list}>`; list = null; } };
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+        flushP(); flushL();
+        const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(c => inline(c.trim()));
+        let t = `<div class="tbl"><table><thead><tr>${cells(l).map(c => `<th>${c}</th>`).join("")}</tr></thead><tbody>`;
+        i += 2; while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { t += `<tr>${cells(lines[i]).map(c => `<td>${c}</td>`).join("")}</tr>`; i++; }
+        i--; html += t + "</tbody></table></div>"; continue;
+      }
+      let m;
+      if ((m = l.match(/^\s*#{1,4}\s+(.*)/))) { flushP(); flushL(); html += `<h3>${inline(m[1])}</h3>`; continue; }
+      if ((m = l.match(/^\s*[-*•]\s+(.*)/))) { flushP(); if (list !== "ul") { flushL(); html += "<ul>"; list = "ul"; } html += `<li>${inline(m[1])}</li>`; continue; }
+      if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { flushP(); if (list !== "ol") { flushL(); html += "<ol>"; list = "ol"; } html += `<li>${inline(m[1])}</li>`; continue; }
+      if (!l.trim()) { flushP(); flushL(); continue; }
+      flushL(); para.push(l);
+    }
+    flushP(); flushL(); return html;
+  }
+
+  function contexte() {
+    if (!D) return "";
+    const { I, fil, dec, todo, heb, pre, plan, part } = D;
+    const row = (o, keys) => keys.map(k => o[k] ? `${k} : ${o[k]}` : "").filter(Boolean).join(" ; ");
+    const out = [];
+    out.push(`Aujourd'hui : ${new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`);
+    out.push(`Séjour : ${I.titre || ""}, du ${I.debut || "?"} au ${I.fin || "?"}, ${I.lieu || ""}`);
+    out.push("\n## Questions à décider\n" + dec.map(x => "- " + row(x, ["Question", "Contexte", "Posée par", "Statut", "Décision"])).join("\n"));
+    out.push("\n## À faire\n" + todo.map(x => "- " + row(x, ["Tâche", "Qui", "Avant le", "Fait"])).join("\n"));
+    out.push("\n## Hébergements\n" + heb.map(x => "- " + row(x, ["Nom", "Lieu", "Pays", "Statut", "Le lieu", "Prix", "Repas", "À savoir"])).join("\n"));
+    out.push("\n## Prestataires\n" + pre.map(x => "- " + row(x, ["Catégorie", "Nom", "Zone", "Statut", "Offre", "Prix", "À savoir"])).join("\n"));
+    out.push("\n## Plan d'action\n" + plan.map(x => "- " + row(x, ["Réf", "Catégorie", "Action / Tâche", "Responsable", "Priorité", "Statut", "Notes & Prochaines étapes"])).join("\n"));
+    const foy = {}; part.forEach(p => { const f = p["Foyer"] || "?"; (foy[f] = foy[f] || []).push(`${p["Prénom"] || "?"} (${(p["Catégorie"] || "").toLowerCase()}, ${p["Âge (fév. 2027)"] || p["Âge"] || "?"})${p["Ville de départ"] ? ", départ " + p["Ville de départ"] : ""}${p["Chambre assignée"] ? ", " + p["Chambre assignée"] : ""}`); });
+    out.push(`\n## Participants (${part.length})\n` + Object.entries(foy).map(([f, l]) => `- ${f} : ${l.join(" ; ")}`).join("\n"));
+    const news = fil.slice().sort((a, b) => String(b["Date"]).localeCompare(String(a["Date"]))).slice(0, 40);
+    out.push("\n## Fil des nouvelles (récent d'abord)\n" + news.map(x => `- ${x["Date"]} · ${x["Source"]} · ${x["Qui"]} : ${x["Quoi"]}`).join("\n"));
+    return out.join("\n");
+  }
+
+  function drawChat() {
+    const log = $("#chat-log");
+    log.innerHTML = (chatLog.length ? "" : `<div class="chat-intro">Posez une question sur le séjour : comparer les hôtels, estimer un budget par famille, proposer un programme, préparer un message… Claude lit les données de l'appli au moment de la question.</div>`)
+      + chatLog.map((m, i) => m.role === "user" ? `<div class="msg user">${esc(m.content)}</div>` : m.role === "error" ? `<div class="msg err">${esc(m.content)}</div>` : `<div class="msg bot${m.pending ? " typing" : ""}">${md(m.content)}${!m.pending && m.content ? `<br><button type="button" class="copy-msg" data-i="${i}">Copier</button>` : ""}</div>`).join("");
+    $("#chat-sugg").innerHTML = chatLog.length ? "" : SUGG.map(t => `<button type="button">${esc(t)}</button>`).join("");
+    log.scrollTop = log.scrollHeight;
+    $("#chat-send").disabled = chatBusy;
+  }
+  function saveChat() { try { sessionStorage.setItem(CHAT_STORE, JSON.stringify(chatLog.filter(m => !m.pending).slice(-30))); } catch (e) { /* rien */ } }
+
+  async function ask(question) {
+    if (chatBusy || !question.trim() || !D || !isUrl(D.I.chat)) return;
+    chatBusy = true;
+    chatLog = chatLog.filter(m => m.role !== "error");
+    chatLog.push({ role: "user", content: question.trim() });
+    const bot = { role: "assistant", content: "", pending: true }; chatLog.push(bot); drawChat();
+    try {
+      const messages = chatLog.filter(m => (m.role === "user" || m.role === "assistant") && !m.pending).map(m => ({ role: m.role, content: m.content }));
+      const r = await fetch(D.I.chat, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ k: KEY, messages, contexte: contexte() }) });
+      if (!r.ok) throw new Error(await r.text().catch(() => "") || "Erreur " + r.status);
+      const reader = r.body.getReader(), dec = new TextDecoder(); let buf = "", last = 0;
+      for (;;) {
+        const { value, done } = await reader.read(); if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let cut; while ((cut = buf.indexOf("\n\n")) >= 0) {
+          const block = buf.slice(0, cut); buf = buf.slice(cut + 2);
+          const data = block.split("\n").filter(l => l.startsWith("data:")).map(l => l.slice(5).trim()).join("");
+          if (!data) continue;
+          try { const ev = JSON.parse(data); if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") bot.content += ev.delta.text; if (ev.type === "error") throw new Error(ev.error && ev.error.message || "erreur"); } catch (e) { if (e instanceof SyntaxError) continue; throw e; }
+        }
+        if (Date.now() - last > 120) { drawChat(); last = Date.now(); }
+      }
+      bot.pending = false;
+      if (!bot.content) throw new Error("Réponse vide.");
+    } catch (e) {
+      chatLog = chatLog.filter(m => m !== bot || bot.content);
+      bot.pending = false;
+      chatLog.push({ role: "error", content: (e && e.message && e.message.length < 200 ? e.message : "Claude n'a pas pu répondre.") + " Réessayez." });
+    }
+    chatBusy = false; saveChat(); drawChat();
+  }
+
+  function openChat() { $("#chat").hidden = false; $("#chat-fab").hidden = true; document.body.classList.add("chat-open"); drawChat(); if (!matchMedia("(max-width:720px)").matches) $("#chat-input").focus(); }
+  function closeChat() { $("#chat").hidden = true; $("#chat-fab").hidden = false; document.body.classList.remove("chat-open"); }
+  $("#chat-fab").onclick = openChat;
+  $("#chat-close").onclick = closeChat;
+  $("#chat-reset").onclick = () => { if (chatBusy) return; chatLog = []; saveChat(); drawChat(); };
+  $("#chat-sugg").onclick = e => { const b = e.target.closest("button"); if (b) ask(b.textContent); };
+  $("#chat-log").onclick = e => { const b = e.target.closest(".copy-msg"); if (!b) return; const t = chatLog[+b.dataset.i].content; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Copié"), () => toast("Copie impossible")); };
+  const input = $("#chat-input");
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 140) + "px"; });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !matchMedia("(max-width:720px)").matches) { e.preventDefault(); $("#chat-form").requestSubmit(); } });
+  $("#chat-form").onsubmit = e => { e.preventDefault(); const q = input.value; if (!q.trim() || chatBusy) return; input.value = ""; input.style.height = "auto"; ask(q); };
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#chat").hidden) closeChat(); });
 
   /* ---------- navigation ---------- */
   function route() {
