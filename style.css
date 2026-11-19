@@ -348,3 +348,6 @@ body.chat-open{overflow:hidden}
 .lk{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;font-weight:500}
 .lk a{text-decoration:none}
 @media (max-width:720px){.lodge .ph{margin:-14px -15px 4px;border-radius:14px 14px 0 0}}
+#vols-dates[hidden]{display:none}
+#vols-dates{margin-bottom:14px}
+@media (max-width:720px){#vols-dates{flex-wrap:wrap;overflow:visible;margin:0 0 14px;padding:0}#vols-dates .chip{flex:1 1 calc(50% - 4px);white-space:normal;line-height:1.3;text-align:center}}

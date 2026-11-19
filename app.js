@@ -282,7 +282,16 @@
     return `<span class="f-tag ${c}">${esc(t)}</span>`;
   }
   function drawVols(rows) {
-    const V = rows.map(r => ({ dep: (r["Départ"] || "").trim(), qui: r["Voyageurs"], opt: r["Option"], co: r["Compagnie"], aller: r["Aller"], retour: r["Retour"], pp: r["Prix / pers. A/R"], tot: r["Total groupe"], rep: r["Repère"], note: r["À savoir"], le: r["Relevé le"] })).filter(r => r.dep && r.opt);
+    const ALL = rows.map(r => ({ dep: (r["Départ"] || "").trim(), qui: r["Voyageurs"], opt: r["Option"], co: r["Compagnie"], aller: r["Aller"], retour: r["Retour"], pp: r["Prix / pers. A/R"], tot: r["Total groupe"], rep: r["Repère"], note: r["À savoir"], le: r["Relevé le"], dates: (r["Dates"] || "").trim() })).filter(r => r.dep && r.opt);
+    const scen = [...new Set(ALL.map(r => r.dates).filter(Boolean))];
+    const box = $("#vols-dates");
+    box.hidden = scen.length < 2;
+    if (scen.length > 1) {
+      const totOf = s => (ALL.find(r => norm(r.dep) === "total" && r.dates === s) || {}).tot;
+      chips("#vols-dates", scen.map(s => [s, totOf(s) ? `${s} · ${totOf(s)}` : s]), "dates", () => drawVols(rows));
+    }
+    const cur = scen.length > 1 ? filters.dates : (scen[0] || "");
+    const V = ALL.filter(r => !r.dates || !cur || r.dates === cur);
     if (!V.length) { $("#vols").innerHTML = `<p class="empty">Les options de vol arrivent bientôt.</p>`; $("#vols-aside").textContent = ""; return; }
     const special = ["total", "trajet", "a savoir"];
     const flights = V.filter(r => !special.includes(norm(r.dep)));
@@ -291,11 +300,11 @@
     const tips = V.filter(r => norm(r.dep) === "a savoir");
     const le = (V.find(r => r.le) || {}).le;
     $("#vols-aside").textContent = le ? `Prix relevés le ${le}` : "";
-    const max = Math.max(1, ...flights.map(r => euros(r.tot)));
+    const max = Math.max(1, ...ALL.filter(r => !special.includes(norm(r.dep))).map(r => euros(r.tot)));
     const groups = [...new Set(flights.map(r => r.dep))];
     let html = "";
     if (total) html += `<div class="card vols-total"><div><div class="vt-lbl">${esc(total.opt)}</div><div class="vt-num">${esc(total.tot)}</div>${total.note ? `<div class="vt-note">${esc(total.note)}</div>` : ""}</div>
-      <div class="vt-dest"><span>Arrivée</span><b>Málaga</b><small>mer. 24 → dim. 28 févr.</small></div></div>`;
+      <div class="vt-dest"><span>Arrivée</span><b>Málaga</b><small>${esc((cur || "Mer. 24 → dim. 28").toLowerCase())} févr.</small></div></div>`;
     groups.forEach(g => {
       const list = flights.filter(r => r.dep === g);
       const qui = (list.find(r => r.qui) || {}).qui || "";
