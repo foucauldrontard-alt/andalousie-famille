@@ -337,3 +337,14 @@ body.chat-open{overflow:hidden}
   .f-leg{grid-template-columns:46px 58px auto 1fr auto;gap:6px;font-size:14px}
   .f-price b{font-size:22px}
 }
+
+/* photos, liens et avis des hébergements */
+.lodge .ph{position:relative;display:block;margin:-16px -18px 4px;border-radius:var(--r) var(--r) 0 0;overflow:hidden;background:var(--grey-soft);aspect-ratio:16/9}
+.lodge .ph img{width:100%;height:100%;object-fit:cover;display:block}
+.lodge .ph span{position:absolute;right:8px;bottom:8px;font-size:11px;color:#fff;background:rgba(0,0,0,.45);padding:2px 8px;border-radius:999px}
+.lodge.refus .ph{filter:grayscale(.6)}
+.avis{background:var(--sky-soft);border-radius:12px;padding:10px 12px;font-size:13.5px;line-height:1.5}
+.avis b{display:block;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--sky);margin-bottom:3px}
+.lk{display:flex;gap:16px;flex-wrap:wrap;font-size:13.5px;font-weight:500}
+.lk a{text-decoration:none}
+@media (max-width:720px){.lodge .ph{margin:-14px -15px 4px;border-radius:14px 14px 0 0}}

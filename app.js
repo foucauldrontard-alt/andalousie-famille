@@ -171,18 +171,22 @@
     drawNews();
 
     /* logement */
-    const L = heb.map(h => ({ nom: h["Nom"], lieu: h["Lieu"], pays: h["Pays"] || "", st: h["Statut"], c: code(h["Statut"]), cap: h["Le lieu"], prix: h["Prix"], repas: h["Repas"], notes: h["À savoir"], contact: h["Contact"], lien: h["Lien du devis"] })).filter(h => h.nom);
+    const L = heb.map(h => ({ nom: h["Nom"], lieu: h["Lieu"], pays: h["Pays"] || "", st: h["Statut"], c: code(h["Statut"]), cap: h["Le lieu"], prix: h["Prix"], repas: h["Repas"], notes: h["À savoir"], contact: h["Contact"], lien: h["Lien du devis"], site: h["Site"], photo: h["Photo"], avis: h["Avis de Claude"] })).filter(h => h.nom);
     const Lpast = L.filter(h => isPast(h.st));
     L.splice(0, L.length, ...L.filter(h => !isPast(h.st)));
     const cnt = k => L.filter(x => x.c === k).length;
     const stats = [[cnt("valide") ? cnt("valide") : cnt("devis"), cnt("valide") ? "lieu choisi" : "devis reçu" + (cnt("devis") > 1 ? "s" : "")], [cnt("attente") + cnt("relance"), "en attente de réponse"], [L.length, "lieux encore en lice"], [Lpast.length, "annulés ou déclinés"]];
     $("#lodge-stats").innerHTML = $("#lodge-stats2").innerHTML = stats.map(([k, l]) => `<div class="stat"><b>${k}</b><span>${l}</span></div>`).join("");
     const order = { valide: 0, devis: 1, relance: 2, attente: 3, a_contacter: 4, refus: 9 };
+    const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } };
+    const photo = h => isUrl(h.photo) ? `<a class="ph" href="${esc(isUrl(h.site) ? h.site : h.photo)}" target="_blank" rel="noopener"><img src="${esc(h.photo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"><span>Photo : ${esc(host(isUrl(h.site) ? h.site : h.photo))}</span></a>` : "";
+    const links = h => { const a = []; if (isUrl(h.site)) a.push(`<a href="${esc(h.site)}" target="_blank" rel="noopener">Voir le site ↗</a>`); if (isUrl(h.lien)) a.push(`<a href="${esc(h.lien)}" target="_blank" rel="noopener">Voir le devis ↗</a>`); return a.length ? `<div class="lk">${a.join("")}</div>` : ""; };
     function drawLodges() {
       $("#lodges").innerHTML = L.filter(x => filters.pays === "tous" || x.pays === filters.pays).sort((a, b) => (order[a.c] ?? 5) - (order[b.c] ?? 5)).map(h => `<div class="card lodge fold ${h.c === "refus" ? "refus" : ""} ${h.c === "devis" || h.c === "valide" ? "devis" : ""}">
-        <div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${h.st ? badge(h.c, h.st) : ""}</div>
+        ${photo(h)}<div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${h.st ? badge(h.c, h.st) : ""}</div>
+        ${h.avis ? `<div class="avis"><b>L'avis de Claude</b>${esc(h.avis)}</div>` : ""}
         <dl class="kv">${kv("Prix", h.prix, true, false, true)}${kv("Le lieu", h.cap)}${kv("Repas", h.repas)}${kv("À savoir", h.notes)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span>
-        ${isUrl(h.lien) ? `<a class="small" href="${esc(h.lien)}" target="_blank" rel="noopener">Voir le devis ↗</a>` : ""}</div>`).join("") || `<p class="empty">Aucun lieu.</p>`;
+        ${links(h)}</div>`).join("") || `<p class="empty">Aucun lieu.</p>`;
     }
     const paysL = [...new Set(L.map(x => x.pays).filter(Boolean))];
     $("#lodge-filters").style.display = paysL.length > 1 ? "" : "none";
@@ -213,7 +217,7 @@
     $("#passe").innerHTML = [
       pastBlock("Décisions prises", closed.length ? `<div class="grid g2">${closed.map(x => `<div class="card decision" style="border-left-color:var(--olive)"><div class="q">${esc(x.q)}</div><div class="small"><b>Décidé :</b> ${esc(x.rep)}</div>${x.le ? `<div class="meta">${fDay(parseD(x.le))}</div>` : ""}</div>`).join("")}</div>` : ""),
       pastBlock("Tâches faites", todos.some(t => t.fait) ? `<div class="card"><ul class="todo">${todos.filter(t => t.fait).map(t => `<li class="done"><span class="box"></span><div><div class="t">${esc(t.q)}</div><div class="who">${esc(t.qui)}</div></div></li>`).join("")}</ul></div>` : ""),
-      pastBlock("Hébergements annulés ou déclinés", Lpast.length ? `<div class="grid g2 past">${Lpast.map(h => `<div class="card lodge fold refus"><div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${badge("refus", h.st)}</div><dl class="kv">${kv("À savoir", h.notes, false, false, true)}${kv("Prix", h.prix)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span></div>`).join("")}</div>` : ""),
+      pastBlock("Hébergements annulés ou déclinés", Lpast.length ? `<div class="grid g2 past">${Lpast.map(h => `<div class="card lodge fold refus"><div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${badge("refus", h.st)}</div><dl class="kv">${kv("À savoir", h.notes, false, false, true)}${kv("Prix", h.prix)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span>${links(h)}</div>`).join("")}</div>` : ""),
       pastBlock("Prestataires et activités annulés", Ppast.length ? `<div class="grid g2 past">${Ppast.map(presCard).join("")}</div>` : ""),
       pastBlock("Actions annulées", actsPast.length ? `<div class="grid g2 past">${actsPast.map(a => `<div class="act"><div class="ref">${esc(a.ref)} · ${esc(a.cat)} · ${esc(a.statut)}</div><div class="a">${esc(a.action)}</div>${a.notes ? `<div class="n">${esc(a.notes)}</div>` : ""}</div>`).join("")}</div>` : "")
     ].join("") || `<p class="empty">Rien d'annulé ni de terminé pour le moment.</p>`;
