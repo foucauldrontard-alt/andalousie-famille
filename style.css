@@ -279,3 +279,12 @@ body.chat-open{overflow:hidden}
 }
 .past-sec{margin-bottom:8px}
 .past .card{opacity:.85}
+
+/* point du jour */
+#point{margin-bottom:6px}
+.point-card{border-left:4px solid var(--wa)}
+.point-txt{white-space:pre-line;font-size:15px;line-height:1.55}
+.point-txt b{font-weight:600}
+.point-act{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn.wa{background:var(--wa);color:#fff;text-decoration:none}
+@media (max-width:720px){.point-act .btn{flex:1;justify-content:center}}

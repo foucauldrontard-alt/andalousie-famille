@@ -79,14 +79,14 @@
   async function load(quiet) {
     if (!quiet) $("#loading").style.display = "";
     try {
-      const [infos, fil, dec, todo, heb, pre, plan, part] = await Promise.all([
+      const [infos, fil, dec, todo, heb, pre, plan, part, pts] = await Promise.all([
         opt("Infos"), opt("Fil"), opt("Décisions"), opt("À faire"), opt("Hébergements"), opt("Prestataires"),
-        opt("Plan (fichier de Noé)"), opt("Participants (fichier de Noé)")
+        opt("Plan (fichier de Noé)"), opt("Participants (fichier de Noé)"), opt("Point du jour")
       ]);
       if (!infos.length && !fil.length && !heb.length) throw new Error("vide");
       const I = {}; const liens = [];
       infos.forEach(r => { const k = (r["Clé"] || "").trim(), v = (r["Valeur"] || "").trim(); if (!k) return; if (/^lien/i.test(k)) { if (isUrl(v)) liens.push({ nom: r["Explication"] || k.replace(/^lien\s*:?\s*/i, ""), url: v }); } else I[k] = v; });
-      D = { I, liens, fil, dec, todo, heb, pre, plan, part };
+      D = { I, liens, fil, dec, todo, heb, pre, plan, part, pts };
       $("#error").innerHTML = "";
       render();
     } catch (e) {
@@ -141,6 +141,17 @@
       || `<p class="empty">Rien à trancher pour le moment.</p>`;
     const tab = document.querySelector('[data-v="accueil"]'); tab.querySelector(".n")?.remove();
     if (open.length) tab.insertAdjacentHTML("beforeend", `<span class="n">${open.length}</span>`);
+
+    /* point du jour (dernier en date, affiché 36 h) */
+    const pt = (D.pts || []).map(r => ({ le: r["Date"], d: parseD(r["Date"]), txt: String(r["Point"] || "").trim() })).filter(r => r.d && r.txt).sort((a, b) => b.d - a.d)[0];
+    const fresh = pt && (Date.now() - pt.d.getTime()) < 36 * 36e5;
+    $("#point").hidden = !fresh;
+    if (fresh) {
+      $("#point-date").textContent = fDayLong(pt.d);
+      $("#point-txt").innerHTML = esc(pt.txt).replace(/\*([^*\n]+)\*/g, "<b>$1</b>");
+      $("#point-wa").href = "https://wa.me/?text=" + encodeURIComponent(pt.txt);
+      $("#point-copy").onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(pt.txt) : Promise.reject()).then(() => toast("Copié : à coller dans WhatsApp"), () => toast("Copie impossible"));
+    }
 
     /* à faire */
     const todos = todo.map(t => ({ q: t["Tâche"], qui: t["Qui"], av: t["Avant le"], fait: norm(t["Fait"]) === "oui" })).filter(t => t.q);
