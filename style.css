@@ -160,3 +160,63 @@ textarea.copy{width:100%;min-height:160px;margin-top:10px;font:13px/1.45 ui-mono
 .err{background:var(--rose-soft);color:var(--rose);border-radius:12px;padding:12px 14px;margin:20px 0;font-size:14px}
 .b-valide{background:var(--olive);color:#fff}
 .room{font-size:11px;color:var(--muted);display:block}
+
+/* ---------- téléphone ---------- */
+nav.tabs a svg{display:none}
+nav.tabs .l-short{display:none}
+.mobile-only{display:none}
+@media (max-width:720px){
+  body{font-size:15px;padding-bottom:calc(66px + env(safe-area-inset-bottom))}
+  .hero{padding:calc(14px + env(safe-area-inset-top)) 0 16px}
+  .hero svg.deco{display:none}
+  .eyebrow{font-size:10.5px;letter-spacing:.1em}
+  .refresh{padding:6px 12px}
+  .hero h1{font-size:26px;margin:4px 0 2px}
+  .hero .dates{font-size:13.5px}
+  .hero-grid{grid-template-columns:1fr;gap:10px;margin-top:12px}
+  .countdown{display:flex;align-items:baseline;gap:8px;justify-content:flex-start;padding:8px 14px;border-radius:14px;min-width:0;width:max-content}
+  .countdown b{font-size:28px}
+  .pills{gap:6px}
+  .pill{font-size:12px;padding:4px 10px}
+  .progress{margin-top:10px}
+  .progress .bar{height:8px}
+  .progress .legend{gap:4px 10px;font-size:11px}
+  nav.tabs{position:fixed;top:auto;bottom:0;left:0;right:0;border-bottom:0;border-top:1px solid var(--line);background:rgba(255,253,248,.97);padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 16px rgba(43,36,32,.06)}
+  nav.tabs .wrap{padding:0 2px;gap:0;justify-content:space-between;overflow:visible}
+  nav.tabs a{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 7px;border-bottom:0;border-top:2px solid transparent;font-size:10.5px;position:relative}
+  nav.tabs a.on{border-color:transparent;color:var(--terra)}
+  nav.tabs a svg{display:block;width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  nav.tabs .l-long{display:none}
+  nav.tabs .l-short{display:block;white-space:nowrap}
+  nav.tabs a .n{position:absolute;top:3px;left:calc(50% + 6px);margin:0;font-size:10px;min-width:16px;padding:0 4px;line-height:16px}
+  main{padding:16px 0 24px}
+  .wrap{padding:0 14px}
+  .sec-h{flex-wrap:wrap;gap:2px 10px;margin:22px 0 10px}
+  .sec-h h2{font-size:20px}
+  .sec-h .aside{font-size:12.5px}
+  .grid{gap:10px}
+  .g2,.g3{grid-template-columns:1fr}
+  .card{padding:14px 15px;border-radius:14px}
+  .decision .q{font-size:17px}
+  .summary-row{grid-template-columns:repeat(2,1fr);gap:8px}
+  .stat{padding:10px 12px}
+  .stat b{font-size:24px}
+  .filters{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px 12px;padding:0 14px}
+  .filters::-webkit-scrollbar{display:none}
+  .chip{flex:none;padding:8px 14px;font-size:13.5px}
+  .kv{grid-template-columns:78px 1fr}
+  .fold{cursor:pointer}
+  .fold:not(.open) .kv > :not(.keep){display:none}
+  .fold .more{display:block;font-size:12.5px;color:var(--terra);font-weight:500;margin-top:2px}
+  .fold.open .more{display:none}
+  .board{display:block}
+  .board .col{display:none;background:none;border:0;padding:0}
+  .board .col.sel{display:block}
+  .board .col h3{display:none}
+  .mobile-only{display:flex}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom))}
+  .tl li{padding-left:40px}
+  .links a{padding:14px}
+}
+.more{display:none}
+a.tap{color:inherit;text-decoration:underline;text-decoration-color:rgba(181,83,46,.35);text-underline-offset:2px}

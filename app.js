@@ -73,7 +73,7 @@
   const PLAN_COLS = [{ k: "À lancer", c: "#B9AC9E" }, { k: "En attente logement", c: "#D98A6A" }, { k: "En cours", c: "#D9A440" }, { k: "Validé", c: "#5E7A3A" }];
 
   /* ---------- chargement ---------- */
-  let D = null, filters = { src: "tout", pays: "tous", cat: "toutes" };
+  let D = null, filters = { src: "tout", pays: "tous", cat: "toutes", statut: "En cours" };
   async function load(quiet) {
     if (!quiet) $("#loading").style.display = "";
     try {
@@ -163,9 +163,9 @@
     $("#lodge-stats").innerHTML = $("#lodge-stats2").innerHTML = stats.map(([k, l]) => `<div class="stat"><b>${k}</b><span>${l}</span></div>`).join("");
     const order = { valide: 0, devis: 1, relance: 2, attente: 3, a_contacter: 4, refus: 9 };
     function drawLodges() {
-      $("#lodges").innerHTML = L.filter(x => filters.pays === "tous" || x.pays === filters.pays).sort((a, b) => (order[a.c] ?? 5) - (order[b.c] ?? 5)).map(h => `<div class="card lodge ${h.c === "refus" ? "refus" : ""} ${h.c === "devis" || h.c === "valide" ? "devis" : ""}">
+      $("#lodges").innerHTML = L.filter(x => filters.pays === "tous" || x.pays === filters.pays).sort((a, b) => (order[a.c] ?? 5) - (order[b.c] ?? 5)).map(h => `<div class="card lodge fold ${h.c === "refus" ? "refus" : ""} ${h.c === "devis" || h.c === "valide" ? "devis" : ""}">
         <div class="top"><div>${h.pays ? `<div class="flag">${esc(h.pays)}</div>` : ""}<h3>${esc(h.nom)}</h3><div class="where">${esc(h.lieu)}</div></div>${h.st ? badge(h.c, h.st) : ""}</div>
-        <dl class="kv">${kv("Le lieu", h.cap)}${kv("Prix", h.prix, true)}${kv("Repas", h.repas)}${kv("À savoir", h.notes)}${kv("Contact", h.contact, false, true)}</dl>
+        <dl class="kv">${kv("Prix", h.prix, true, false, true)}${kv("Le lieu", h.cap)}${kv("Repas", h.repas)}${kv("À savoir", h.notes)}${kv("Contact", h.contact, false, true)}</dl><span class="more">Voir le détail ▾</span>
         ${isUrl(h.lien) ? `<a class="small" href="${esc(h.lien)}" target="_blank" rel="noopener">Voir le devis ↗</a>` : ""}</div>`).join("") || `<p class="empty">Aucun lieu.</p>`;
     }
     chips("#lodge-filters", [["tous", "Tous"], ...[...new Set(L.map(x => x.pays).filter(Boolean))].map(p => [p, p])], "pays", drawLodges);
@@ -174,9 +174,9 @@
     /* prestataires */
     const P = pre.map(p => ({ cat: p["Catégorie"] || "Autres", nom: p["Nom"], zone: p["Zone"], st: p["Statut"], c: code(p["Statut"]), offre: p["Offre"], prix: p["Prix"], notes: p["À savoir"], contact: p["Contact"] })).filter(p => p.nom);
     const intro = { "Repas": "Demi-pension de l'hôtel ou chef à domicile", "Garde d'enfants": "Pour quelques demi-journées entre adultes", "Transport": "Se réserve une fois le lieu choisi", "Sorties": "Autour de Ronda" };
-    $("#presta").innerHTML = [...new Set(P.map(p => p.cat))].map(cat => `<div class="sec-h"><h2>${esc(cat)}</h2><span class="aside">${esc(intro[cat] || "")}</span></div><div class="grid g2">${P.filter(p => p.cat === cat).map(p => `<div class="card lodge ${p.c === "refus" ? "refus" : ""}">
+    $("#presta").innerHTML = [...new Set(P.map(p => p.cat))].map(cat => `<div class="sec-h"><h2>${esc(cat)}</h2><span class="aside">${esc(intro[cat] || "")}</span></div><div class="grid g2">${P.filter(p => p.cat === cat).map(p => `<div class="card lodge fold ${p.c === "refus" ? "refus" : ""}">
       <div class="top"><div><h3>${esc(p.nom)}</h3><div class="where">${esc(p.zone)}</div></div>${p.st ? badge(p.c, p.st) : ""}</div>
-      <dl class="kv">${kv("Offre", p.offre)}${kv("Prix", p.prix, true)}${kv("À savoir", p.notes)}${kv("Contact", p.contact, false, true)}</dl></div>`).join("")}</div>`).join("") || `<p class="empty">Aucun prestataire.</p>`;
+      <dl class="kv">${kv("Offre", p.offre, false, false, true)}${kv("Prix", p.prix, true, false, true)}${kv("À savoir", p.notes)}${kv("Contact", p.contact, false, true)}</dl><span class="more">Voir le détail ▾</span></div>`).join("")}</div>`).join("") || `<p class="empty">Aucun prestataire.</p>`;
 
     /* famille */
     $("#fam-aside").textContent = `${foyers.length} foyers`;
@@ -191,7 +191,9 @@
     function drawPlan() {
       const list = acts.filter(a => filters.cat === "toutes" || a.cat === filters.cat);
       const card = a => `<div class="act"><div class="ref">${esc(a.ref)} · ${esc(a.cat)}${a.prio ? ` · <span class="prio ${esc(a.prio)}">${esc(a.prio)}</span>` : ""}</div><div class="a">${esc(a.action)}</div>${a.notes ? `<div class="n">${esc(a.notes)}</div>` : ""}${a.resp ? `<div class="due">👤 ${esc(a.resp)}</div>` : ""}</div>`;
-      $("#board").innerHTML = PLAN_COLS.map(c => { const items = list.filter(a => a.statut === c.k); return `<div class="col"><h3><span style="border-bottom:3px solid ${c.c}">${esc(c.k)}</span><em>${items.length}</em></h3>${items.map(card).join("") || `<div class="small empty">—</div>`}</div>`; }).join("");
+      $("#plan-status").innerHTML = PLAN_COLS.slice().reverse().map(c => `<button type="button" class="chip ${c.k === filters.statut ? "on" : ""}" data-k="${esc(c.k)}">${esc(c.k)} · ${list.filter(a => a.statut === c.k).length}</button>`).join("");
+      $("#plan-status").onclick = e => { const b = e.target.closest(".chip"); if (!b) return; filters.statut = b.dataset.k; drawPlan(); };
+      $("#board").innerHTML = PLAN_COLS.map(c => { const items = list.filter(a => a.statut === c.k); return `<div class="col ${c.k === filters.statut ? "sel" : ""}"><h3><span style="border-bottom:3px solid ${c.c}">${esc(c.k)}</span><em>${items.length}</em></h3>${items.map(card).join("") || `<div class="small empty">—</div>`}</div>`; }).join("");
       const other = list.filter(a => !PLAN_COLS.some(c => c.k === a.statut));
       if (other.length) $("#board").insertAdjacentHTML("beforeend", `<div class="col"><h3>Autres<em>${other.length}</em></h3>${other.map(card).join("")}</div>`);
     }
@@ -217,9 +219,15 @@
     $("#foot").innerHTML = `Données lues en direct dans le Drive du projet${m ? ` · fil mis à jour le ${fDay(m)}${hasTime(I.maj) ? " à " + fTime(m) : ""}` : ""}. Pour corriger une info, modifiez le fichier dans le Drive : l'appli suivra.`;
   }
 
-  function kv(label, val, bold, muted) {
+  function kv(label, val, bold, muted, keep) {
     const v = String(val || "").trim(); if (!v || v === "—") return "";
-    return `<dt>${label}</dt><dd${muted ? ' class="muted"' : ""}>${bold ? `<b>${esc(v)}</b>` : esc(v)}</dd>`;
+    const k = keep ? ' class="keep"' : "";
+    const body = muted ? linkify(v) : (bold ? `<b>${esc(v)}</b>` : esc(v));
+    return `<dt${k}>${label}</dt><dd${k}${muted ? ' style="color:var(--muted)"' : ""}>${body}</dd>`;
+  }
+  function linkify(v) {
+    return esc(v).replace(/([\w.+-]+@[\w-]+\.[\w.-]+)|(\+\d[\d ]{7,}\d)/g, (m, mail, tel) =>
+      mail ? `<a class="tap" href="mailto:${mail}">${mail}</a>` : `<a class="tap" href="tel:${tel.replace(/ /g, "")}">${tel}</a>`);
   }
   function chips(sel, items, key, redraw) {
     const el = $(sel);
@@ -235,8 +243,17 @@
     document.querySelectorAll("section.view").forEach(s => s.classList.toggle("on", s.id === "v-" + ok));
     document.querySelectorAll("#tabs a").forEach(a => a.classList.toggle("on", a.dataset.v === ok));
   }
-  window.addEventListener("hashchange", () => { route(); const nav = $("nav.tabs"); if (window.scrollY > nav.offsetTop) window.scrollTo({ top: nav.offsetTop, behavior: "smooth" }); });
-  document.addEventListener("click", e => { const n = e.target.closest(".act .n"); if (n) n.classList.toggle("open"); });
+  window.addEventListener("hashchange", () => {
+    route();
+    const nav = $("nav.tabs");
+    if (getComputedStyle(nav).position === "fixed") { const m = $("main"); if (window.scrollY > m.offsetTop - 10) window.scrollTo({ top: m.offsetTop - 10 }); }
+    else if (window.scrollY > nav.offsetTop) window.scrollTo({ top: nav.offsetTop, behavior: "smooth" });
+  });
+  document.addEventListener("click", e => {
+    const n = e.target.closest(".act .n"); if (n) n.classList.toggle("open");
+    if (e.target.closest("a")) return;
+    const f = e.target.closest(".fold"); if (f) f.classList.toggle("open");
+  });
   $("#refresh").onclick = () => load(true).then(() => toast("À jour"));
   document.addEventListener("visibilitychange", () => { if (!document.hidden && D) load(true); });
   setInterval(() => { if (!document.hidden) load(true); }, 5 * 60 * 1000);
